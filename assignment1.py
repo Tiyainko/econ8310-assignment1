@@ -32,7 +32,7 @@ X_train = train[["hour", "dow", "month"]].astype(int).values
 y_train = train["trips"].astype(float).values
 X_test = test[["hour", "dow", "month"]].astype(int).values
 
-model = pygam.LinearGAM(pygam.s(0, periodic=True) + pygam.f(1) + pygam.f(2))
+model = pygam.LinearGAM(pygam.s(0) + pygam.f(1) + pygam.f(2))
 modelFit = model.fit(X_train, y_train)
 
 pred = modelFit.predict(X_test)
