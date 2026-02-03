@@ -1,42 +1,45 @@
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from pygam import LinearGAM, s, f
+import pygam
 
 model = None
 modelFit = None
-pred = []
+pred = None
+
+TRAIN_URL = "https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_train.csv"
+TEST_URL = "https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_test.csv"
 
 def load_csv(name, url):
-    for p in (Path(name), Path.cwd() / name):
+    for p in (Path(name), Path.cwd() / name, Path.cwd() / "data" / name):
         if p.exists():
             return pd.read_csv(p)
     return pd.read_csv(url)
 
-try:
-    train = load_csv(
-        "assignment_data_train.csv",
-        "https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_train.csv"
-    )
-    test = load_csv(
-        "assignment_data_test.csv",
-        "https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_test.csv"
-    )
+train = load_csv("assignment_data_train.csv", TRAIN_URL)
+test = load_csv("assignment_data_test.csv", TEST_URL)
 
-    train["Timestamp"] = pd.to_datetime(train["Timestamp"])
-    test["Timestamp"] = pd.to_datetime(test["Timestamp"])
+train["Timestamp"] = pd.to_datetime(train["Timestamp"], errors="coerce")
+test["Timestamp"] = pd.to_datetime(test["Timestamp"], errors="coerce")
 
-    train["dow"] = train["Timestamp"].dt.dayofweek
-    test["dow"] = test["Timestamp"].dt.dayofweek
+train = train.dropna(subset=["Timestamp"])
+test = test.dropna(subset=["Timestamp"])
 
-    X_train = train[["hour", "dow", "month"]].values
-    y_train = train["trips"].values
-    X_test = test[["hour", "dow", "month"]].values
+train["dow"] = train["Timestamp"].dt.dayofweek.astype(int)
+test["dow"] = test["Timestamp"].dt.dayofweek.astype(int)
 
-    model = LinearGAM(s(0, periodic=True) + f(1) + f(2))
-    modelFit = model.fit(X_train, y_train)
+X_train = train[["hour", "dow", "month"]].astype(int).values
+y_train = train["trips"].astype(float).values
+X_test = test[["hour", "dow", "month"]].astype(int).values
 
-    pred = modelFit.predict(X_test)
-    pred = np.maximum(pred, 0).astype(float).tolist()
-except Exception:
-    pass
+model = pygam.LinearGAM(pygam.s(0, periodic=True) + pygam.f(1) + pygam.f(2))
+modelFit = model.fit(X_train, y_train)
+
+pred = modelFit.predict(X_test)
+pred = np.maximum(pred, 0.0)
+pred = np.asarray(pred, dtype=float).reshape(-1)
+
+if pred.shape[0] != 744:
+    pred = pred[:744] if pred.shape[0] > 744 else np.pad(pred, (0, 744 - pred.shape[0]), mode="edge")
+
+pred = pred.tolist()
